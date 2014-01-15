@@ -53,3 +53,117 @@
 </body>
 </html>
 ```
+
+### Some glue code
+
+```javascript
+define(["lib/fixtures", "underscore"], function(fixtures) {
+  function loadPage(options) {
+    var mainDataRegex = / data-main="([^"]*)"/
+    fixtures.cleanUp()
+    var html = fixtures.read(options.url)
+    var mainData = html.match(mainDataRegex)[1] + ".js"
+    fixtures.set(html.replace(mainDataRegex, ""))
+    $('#js-fixtures').show()
+    fixtures.window().onload = function() {
+      var r = fixtures.window().require
+      r.config({
+        shim: { "lib/jquery.mockjax": { deps: ["jquery"] } },
+        baseUrl: "/js/lib",
+        paths: {
+          lib: "/test/lib",
+          jquery: 'jquery-1.8.3.min'
+        }
+      })
+      r(["lib/sinon-1.7.3", "lib/jquery.mockjax"], function() {
+        r.config({ baseUrl: '/js', map: options.dependenciesMap })
+        options.beforeMainData && options.beforeMainData()
+        r([mainData], function(main) {_.each(main, function(value, key) {
+          if(_.isFunction(value.done) && options.callbacks[key]){
+            value.done(function(){
+              try {
+                options.callbacks[key](arguments)
+              } catch(e) {
+                options.onError(e)
+              }
+            })
+          }
+        })})
+      })
+    }
+  }
+
+  function waitsFor(latchFunction, timeoutMessage, timeout, done) {
+    var INTERVAL = 10
+    var timeleft = timeout
+    function test() {
+      if(latchFunction()) {
+        done()
+      } else if(timeleft > 0) {
+        timeleft -= INTERVAL
+        setTimeout(test, INTERVAL)
+      } else {
+        done(timeoutMessage)
+      }
+    }
+    test()
+  }
+
+  function waitForPageChange(regex, done) {
+    waitsFor(function() {
+      return fixtures.window().location.href.match(regex)
+    }, "timeout while waiting page to change to match " + regex, 1000, done)
+  }
+
+  function clockDependent(clock) {
+    function type(input, text) {
+      for(var i = 0; i <= text.length; i++) {
+        input.val(text.substring(0, i)).trigger('keyup')
+        clock.tick(30)
+      }
+      clock.tick(200)
+      return input
+    }
+
+    function backspace(input) {
+      var text = input.val()
+      input.val(text.substring(0, text.length - 1)).trigger('keyup')
+      clock.tick(200)
+      return input
+    }
+
+    return {
+      type: type,
+      backspace: backspace
+    }
+  }
+
+  function mockjax(url, response, status) {
+    return fixtures.window().$.mockjax({
+      url: url,
+      status: status || 200,
+      responseTime: 0,
+      dataType: 'json',
+      contentType: 'application/json',
+      responseText: JSON.stringify(response)
+    })
+  }
+
+  function mockjaxForm(url, response, status) {
+    return fixtures.window().$.mockjax({
+      url: url,
+      status: status || 200,
+      responseTime: 0,
+      responseText: response
+    })
+  }
+
+  return {
+    loadPage: loadPage,
+    waitForPageChange: waitForPageChange,
+    clockDependent: clockDependent,
+    mockjax: mockjax,
+    mockjaxForm: mockjaxForm
+  }
+})
+```
