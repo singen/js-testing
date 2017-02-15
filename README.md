@@ -1,6 +1,6 @@
 ### What we use to test user-side javascript code
 
-[The Mocha testing framework](http://visionmedia.github.io/mocha/)
+[The Mocha testing framework](http://mochajs.org/)
 
 [A small fixtures library](https://github.com/badunk/js-fixtures)  to load html inside tests
 
